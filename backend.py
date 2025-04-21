@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import json
+import s3fs
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -198,12 +199,12 @@ def WSI_hourly_temp_scrape_and_store(wsi_user: str,
     )
     logger.info("WSI scrape and store process completed.")
 
-
 # --- AWS Lambda Handler ---
 def lambda_handler(event, context):
     """
     AWS Lambda entry point. Reads configuration from environment
     variables and triggers the scraping and storing process.
+    Fetches WSI password from AWS Secrets Manager.
     """
     logger.info("Lambda function initiated.")
     logger.info(f"Received event: {json.dumps(event)}") # Log the trigger event if needed
@@ -216,23 +217,64 @@ def lambda_handler(event, context):
         filename_prefix = os.environ.get('FILENAME_PREFIX', 'ercot_temps')
         date_col = os.environ.get('DATE_COLUMN_NAME', 'run_time')
 
-        # Required WSI Credentials (from environment variables for now)
-        # !! TODO: Migrate WSI_PW to AWS Secrets Manager !!
+        # Required WSI Credentials (User/Profile from Env Vars)
         wsi_user = os.environ.get('WSI_USER')
-        wsi_pw = os.environ.get('WSI_PW') # Read password from environment
         wsi_profile = os.environ.get('WSI_PROFILE')
+
+        # WSI Password (from Secrets Manager)
+        secret_name = os.environ.get('WSI_PW_SECRET_NAME') # Get secret name from env var
+        if not secret_name:
+             raise ValueError("Missing required environment variable: WSI_PW_SECRET_NAME")
+
+        region_name = os.environ.get('AWS_REGION') # Get region from default Lambda env vars
+        if not region_name:
+            # Fallback or raise error if needed, but usually set for Lambda
+            logger.warning("AWS_REGION environment variable not found. Attempting without explicit region.")
+            session = boto3.session.Session()
+        else:
+             session = boto3.session.Session(region_name=region_name)
+
+        secrets_client = session.client(service_name='secretsmanager')
+
+        try:
+            logger.info(f"Attempting to retrieve secret: {secret_name}")
+            get_secret_value_response = secrets_client.get_secret_value(SecretId=secret_name)
+            logger.info("Secret retrieval successful.")
+        except Exception as e:
+            logger.error(f"Error retrieving secret {secret_name}: {e}", exc_info=True)
+            raise e # Re-raise the exception
+
+        # Decrypts secret using the associated KMS key.
+        # Check if the secret is a string - assuming plain text password storage
+        if 'SecretString' in get_secret_value_response:
+            # --- UPDATED PARSING LOGIC ---
+            # Assume the secret value is the plain password string directly
+            wsi_pw = get_secret_value_response['SecretString']
+            logger.info("Secret treated as plain text string.")
+            # --- END OF UPDATED LOGIC ---
+        else:
+            # Handle binary secrets if needed, though unlikely for a password
+            # decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+            raise ValueError(f"Secret {secret_name} does not contain a SecretString.")
+
+        # Perform validation AFTER assignment
+        if not wsi_pw:
+             raise ValueError("WSI password retrieved from secret is empty or could not be assigned.")
+
 
         # Required City List (expecting comma-separated string)
         cities_str = os.environ.get('CITIES_LIST', 'KMAF,KDFW,KAUS,KSAT,KIAH,KCRP') # Default list
         cities = [city.strip() for city in cities_str.split(',') if city.strip()]
 
         # --- Basic Validation of Environment Variables ---
+        # WSI_PW is now handled separately
         required_vars = {
             'S3_BUCKET_NAME': bucket_name,
             'S3_FOLDER_PREFIX': s3_folder_prefix,
             'WSI_USER': wsi_user,
-            'WSI_PW': wsi_pw,
-            'WSI_PROFILE': wsi_profile
+            # 'WSI_PW': wsi_pw, # No longer check wsi_pw directly here
+            'WSI_PROFILE': wsi_profile,
+            'WSI_PW_SECRET_NAME': secret_name # Check if the secret name was provided
         }
         missing_vars = [k for k, v in required_vars.items() if not v]
         if missing_vars:
@@ -245,13 +287,16 @@ def lambda_handler(event, context):
              logger.error(error_msg)
              raise ValueError(error_msg)
 
-        logger.info(f"Configuration loaded: Bucket={bucket_name}, Prefix={s3_folder_prefix}, Cities={cities}")
+        # Log loaded config, but mask or omit password
+        logger.info(f"Configuration loaded: Bucket={bucket_name}, Prefix={s3_folder_prefix}, Cities={cities}, SecretName={secret_name}")
+        # Be careful not to log the actual password value wsi_pw
 
         # --- Execute the Core Logic ---
+        # Pass the fetched wsi_pw to the function
         WSI_hourly_temp_scrape_and_store(
             cities=cities,
             wsi_user=wsi_user,
-            wsi_pw=wsi_pw,
+            wsi_pw=wsi_pw, # Pass the retrieved password
             wsi_profile=wsi_profile,
             bucket_name=bucket_name,
             s3_folder_prefix=s3_folder_prefix,
