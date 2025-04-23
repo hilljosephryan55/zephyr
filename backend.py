@@ -146,13 +146,13 @@ def WSI_hourly_temp_scrape_and_store(wsi_user: str,
 
     for station in cities:
         logger.info(f"Scraping data for station: {station}")
-        # Use f-string formatting correctly
+
         wsi_url = (f'https://www.wsitrader.com/Services/CSVDownloadService.svc/GetHourlyForecast?'
                    f'Account={wsi_user}&Profile={wsi_profile}&Password={wsi_pw}&'
                    f'TempUnits=F&SiteIds[]={station}&Region=NA')
 
         try:
-            # Using pandas to read CSV directly from URL (needs requests library installed)
+            # Using pandas to read CSV directly from URL
             wsi = pd.read_csv(wsi_url, header=[1], index_col=0)
 
             # Clean column names and set index type
@@ -166,7 +166,7 @@ def WSI_hourly_temp_scrape_and_store(wsi_user: str,
 
         except Exception as e:
             logger.error(f"Failed to scrape or process data for station {station} from {wsi_url}. Error: {e}", exc_info=True)
-            # raise e # Option: Uncomment to stop processing on first failure
+
             continue # Option: Skip this station and continue with others
 
     # Check if any data was successfully scraped
@@ -263,18 +263,17 @@ def lambda_handler(event, context):
 
 
         # Required City List (expecting comma-separated string)
-        cities_str = os.environ.get('CITIES_LIST', 'KMAF,KDFW,KAUS,KSAT,KIAH,KCRP') # Default list
+        cities_str = os.environ.get('CITIES_LIST', 'KDFW,KAUS,KSAT,KIAH,KBRO')
         cities = [city.strip() for city in cities_str.split(',') if city.strip()]
 
         # --- Basic Validation of Environment Variables ---
-        # WSI_PW is now handled separately
+
         required_vars = {
             'S3_BUCKET_NAME': bucket_name,
             'S3_FOLDER_PREFIX': s3_folder_prefix,
             'WSI_USER': wsi_user,
-            # 'WSI_PW': wsi_pw, # No longer check wsi_pw directly here
             'WSI_PROFILE': wsi_profile,
-            'WSI_PW_SECRET_NAME': secret_name # Check if the secret name was provided
+            'WSI_PW_SECRET_NAME': secret_name
         }
         missing_vars = [k for k, v in required_vars.items() if not v]
         if missing_vars:
@@ -289,7 +288,7 @@ def lambda_handler(event, context):
 
         # Log loaded config, but mask or omit password
         logger.info(f"Configuration loaded: Bucket={bucket_name}, Prefix={s3_folder_prefix}, Cities={cities}, SecretName={secret_name}")
-        # Be careful not to log the actual password value wsi_pw
+
 
         # --- Execute the Core Logic ---
         # Pass the fetched wsi_pw to the function
@@ -315,7 +314,7 @@ def lambda_handler(event, context):
         # Return error status for monitoring
         return {
             'statusCode': 500,
-            # Provide error details in the body if desired, but be careful with sensitive info
+            # Provide error details in the body if desired
             'body': json.dumps(f'Error during execution: {str(e)}')
         }
 
