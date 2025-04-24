@@ -57,7 +57,7 @@ def read_root(request: Request, msg=""):
     Generate temperature/dewpoint forecast tables and highcharts for actuals and forecast data.
     """
 
-    ercot_cities = ['KMAF', 'KDFW', 'KAUS', 'KSAT', 'KIAH', 'KCRP']
+    ercot_cities = ['KBRO', 'KDFW', 'KAUS', 'KSAT', 'KIAH']
 
 
     # What be tomorrow?
@@ -225,10 +225,8 @@ def read_root(request: Request, msg=""):
                'sat_temp_a_data': list(ercot_tempdata.loc['SAT'].loc['Act']),
                'iah_temp_f_data': list(ercot_tempdata.loc['IAH'].loc['Fcst']),
                'iah_temp_a_data': list(ercot_tempdata.loc['IAH'].loc['Act']),
-               'maf_temp_f_data': list(ercot_tempdata.loc['MAF'].loc['Fcst']),
-               'maf_temp_a_data': list(ercot_tempdata.loc['MAF'].loc['Act']),
-               'crp_temp_f_data': list(ercot_tempdata.loc['CRP'].loc['Fcst']),
-               'crp_temp_a_data': list(ercot_tempdata.loc['CRP'].loc['Act']),
+               'bro_temp_f_data': list(ercot_tempdata.loc['BRO'].loc['Fcst']),
+               'bro_temp_a_data': list(ercot_tempdata.loc['BRO'].loc['Act']),
                'dfw_dp_f_data': list(ercot_dpdata.loc['DFW'].loc['Fcst']),
                'dfw_dp_a_data': list(ercot_dpdata.loc['DFW'].loc['Act']),
                'aus_dp_f_data': list(ercot_dpdata.loc['AUS'].loc['Fcst']),
@@ -237,10 +235,9 @@ def read_root(request: Request, msg=""):
                'sat_dp_a_data': list(ercot_dpdata.loc['SAT'].loc['Act']),
                'iah_dp_f_data': list(ercot_dpdata.loc['IAH'].loc['Fcst']),
                'iah_dp_a_data': list(ercot_dpdata.loc['IAH'].loc['Act']),
-               'maf_dp_f_data': list(ercot_dpdata.loc['MAF'].loc['Fcst']),
-               'maf_dp_a_data': list(ercot_dpdata.loc['MAF'].loc['Act']),
-               'crp_dp_f_data': list(ercot_dpdata.loc['CRP'].loc['Fcst']),
-               'crp_dp_a_data': list(ercot_dpdata.loc['CRP'].loc['Act']),
+               'bro_dp_f_data': list(ercot_dpdata.loc['BRO'].loc['Fcst']),
+               'bro_dp_a_data': list(ercot_dpdata.loc['BRO'].loc['Act']),
+
 
                'date_accurate': today_accurate,
                'date': today_short,
